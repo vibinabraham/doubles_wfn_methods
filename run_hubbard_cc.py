@@ -12,8 +12,8 @@ numpy_memory = 2 # numpy memory limit (2GB)
 
 
 ##Parameters
-U = 2
-t_ratio = 1.0
+U = 5
+t_ratio = 0.5
 
 #Active Space
 n_orb   = 6
@@ -57,7 +57,9 @@ Escf,orb,h,g,C = run_hubbard_scf(h_local,g_local,n_elec//2,t)
 E_dc, t2d   = run_ccd_method(orb,h,g,n_elec//2,t2=None,method="DCD",method2="normal",diis=False)
 E_cc, t2   = run_ccd_method(orb,h,g,n_elec//2,t2d,method="CCD",method2="normal",diis_start=50)
 E_ccs, t2s = run_ccd_method(orb,h,g,n_elec//2,t2=None,method="CCD",method2="singlet",diis=False)
-E_cct, t2t = run_ccd_method(orb,h,g,n_elec//2,t2=None,method="CCD",method2="triplet")
+E_cct, t2t = run_ccd_method(orb,h,g,n_elec//2,t2=None,method="CCD",method2="triplet", diis=False)
+E_cc, t2   = run_ccd_method(orb,h,g,n_elec//2,t2d,method="CID",method2="normal",diis_start=10)
+print(" CID                  :%16.10f" %E_cc)
 t2 = t2.ravel()
 t2s = t2s.ravel()
 t2t = t2t.ravel()
@@ -76,9 +78,9 @@ efci, ci = cisolver.kernel(h, g, h.shape[1], (n_a,n_b), ecore=0)
 print("         Energy")
 print("ESCF %16.8f" %Escf)
 print(" FCI                  :%16.10f" %efci)
+
 print("%16.8f %16.8f %16.8f %16.8f"%(E_cc,E_ccs,E_cct,E_dc))
 print("         CCD              CCD0             CCD1            DCD")
 print("%16.8f %16.8f %16.8f %16.8f"%(e_tot_cc,e_tot_ccs,e_tot_cct,e_tot_dc))
 print(ci.shape)
 print(ci)
-

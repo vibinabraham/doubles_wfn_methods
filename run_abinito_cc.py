@@ -68,6 +68,7 @@ Ke  =  np.einsum('pqqp',g[:nel,:nel,:nel,:nel])
 Escf = 2 * he +  2 * Je - Ke
 
 E_cc, t2   = run_ccd_method(orb,h,g,nel,t2=None,method="CCD",method2="normal",diis=False)
+E_cc, t2   = run_ccd_method(orb,h,g,nel,t2=None,method="CID",method2="normal",diis=False)
 
 e_tot_cc = E_cc + Escf
 

@@ -209,8 +209,17 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
         elif method == 'LCC':
             temp = 0 * DCD_1C 
 
+
+        elif method == 'CID':
+            temp = 0 * DCD_1C
+
+
         temp2 = temp.swapaxes(0,1)
         temp3 = temp  + temp2.swapaxes(2,3)
+
+        if method == 'CID':
+            temp3 = - E_cc * t2 
+
 
         #this should go to zero at convergenec
         #print((Rijab + temp3)-t2*Dijab)
