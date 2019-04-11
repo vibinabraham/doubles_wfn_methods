@@ -81,4 +81,10 @@ for i in range(0,n_steps+1):
     beta.append(ratio)
 
     print("Current ratio %16.8f" %ratio)
-    E_cc, t2   = run_ccd_method(orb,h,g,n_elec//2,t2=t2,method="DCD",method2="normal",diis_start=40)
+    E_cc, t2d   = run_ccd_method(orb,h,g,n_elec//2,t2=t2,method="DCD",method2="normal",diis_start=40)
+    E_cc, t2   = run_ccd_method(orb,h,g,n_elec//2,t2d,method="CCD",method2="normal",diis_start=50)
+    E_ccs, t2s = run_ccd_method(orb,h,g,n_elec//2,t2d,method="CCD",method2="singlet",diis=False)
+    E_cct, t2t = run_ccd_method(orb,h,g,n_elec//2,t2=None,method="CCD",method2="triplet", diis=False)
+    E_cid, c2   = run_ccd_method(orb,h,g,n_elec//2,t2d,method="CID",method2="normal",diis=False)
+    E_cid_s, c2_s   = run_ccd_method(orb,h,g,n_elec//2,t2d,method="CID",method2="singlet",diis=False)
+    E_cid_t, c2_t   = run_ccd_method(orb,h,g,n_elec//2,t2d,method="CID",method2="triplet",diis=False)

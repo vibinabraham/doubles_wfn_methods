@@ -44,13 +44,15 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
         method = "CCD",method2="normal", 
         max_iter = 1000, e_conv = 1e-10, d_conv = 1e-8, 
         diis = True, diis_start=10, max_diis = 5,
-        damp = True, damp_ratio=0.8):
+        damp = True, damp_ratio=0.8, alpha=1.0,beta=1.0,gamma=1.0):
 # {{{
     print()
     print(" ---------------------------------------------------------")
     print("                 Coupled Cluster Doubles")
     print(" ---------------------------------------------------------")
-    print("                     Method:",method)
+    print("                     Method  :",method)
+    print(" ---------------------------------------------------------")
+    print("                     Method2 :",method2)
     print(" ---------------------------------------------------------")
     print("")
 
@@ -141,32 +143,43 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
         Rijab  -=  np.einsum('imab,mj -> ijab',t2,Foo)
         Rijab  -=  np.einsum('mjab,mi -> ijab',t2,Foo)
 
-        Rijab  +=  0.5 * np.einsum('mnab,mnij -> ijab',t2,Woooo)
-        Rijab  +=  0.5 * np.einsum('nmab,nmij -> ijab',t2,Woooo)
-        Rijab  +=  0.5 * np.einsum('ijef,abef -> ijab',t2,Wvvvv)
-        Rijab  +=  0.5 * np.einsum('ijfe,abfe -> ijab',t2,Wvvvv)
+        # linear in T2 terms
+        # hole-hole ladder
+        L1_ijab   =  0.5 * np.einsum('mnab,mnij -> ijab',t2,Woooo)
+        L1_ijab  +=  0.5 * np.einsum('nmab,nmij -> ijab',t2,Woooo)
 
-        Rijab  +=  np.einsum('imae,mbej -> ijab',t2,Wovvo)
-        Rijab  -=  np.einsum('miae,mbej -> ijab',t2,Wovvo)
-
-        Rijab  +=  np.einsum('imae,mbej -> ijab',t2,Wovvo)
-        Rijab  +=  np.einsum('imae,mbje -> ijab',t2,Wovov)
-
-        Rijab  +=  np.einsum('mibe,maje -> ijab',t2,Wovov)
-        Rijab  +=  np.einsum('mjae,mbie -> ijab',t2,Wovov)
-
-        Rijab  +=  np.einsum('jmbe,maei -> ijab',t2,Wovvo)
-        Rijab  -=  np.einsum('mjbe,maei -> ijab',t2,Wovvo)
-
-        Rijab  +=  np.einsum('jmbe,maei -> ijab',t2,Wovvo)
-        Rijab  +=  np.einsum('jmbe,maie -> ijab',t2,Wovov)
+        # particle-particle ladder
+        L2_ijab   =  0.5 * np.einsum('ijef,abef -> ijab',t2,Wvvvv)
+        L2_ijab  +=  0.5 * np.einsum('ijfe,abfe -> ijab',t2,Wvvvv)
 
 
+        # particle-hole ring
+        L3_ijab   =  np.einsum('imae,mbej -> ijab',t2,Wovvo)
+        L3_ijab  -=  np.einsum('miae,mbej -> ijab',t2,Wovvo)
+
+        L3_ijab  +=  np.einsum('imae,mbej -> ijab',t2,Wovvo)
+        L3_ijab  +=  np.einsum('imae,mbje -> ijab',t2,Wovov)
+
+        L3_ijab  +=  np.einsum('mibe,maje -> ijab',t2,Wovov)
+        L3_ijab  +=  np.einsum('mjae,mbie -> ijab',t2,Wovov)
+
+        L3_ijab  +=  np.einsum('jmbe,maei -> ijab',t2,Wovvo)
+        L3_ijab  -=  np.einsum('mjbe,maei -> ijab',t2,Wovvo)
+
+        L3_ijab  +=  np.einsum('jmbe,maei -> ijab',t2,Wovvo)
+        L3_ijab  +=  np.einsum('jmbe,maie -> ijab',t2,Wovov)
+
+        Rijab    += L1_ijab + L2_ijab + L3_ijab
+
+        # Quadratic in T2 terms
+
+        # Ring diagram, Coulomb part
         DCD_1C  =  0.5 * 2 * 2 * np.einsum('klcd,ilad,kjcb -> ijab',Woovv,t2,t2)
         DCD_1C += -0.5     * 2 * np.einsum('klcd,ilda,kjcb -> ijab',Woovv,t2,t2)
         DCD_1C += -0.5     * 2 * np.einsum('klcd,ilad,kjbc -> ijab',Woovv,t2,t2)
         DCD_1C +=  0.5         * np.einsum('klcd,ilda,kjbc -> ijab',Woovv,t2,t2)
 
+        # Ring diagram, Exchange part
         DCD_1X  = -0.5 *     2 * np.einsum('kldc,ilad,kjcb -> ijab',Woovv,t2,t2)
         DCD_1X +=  0.5         * np.einsum('kldc,ilad,kjbc -> ijab',Woovv,t2,t2)
 
@@ -177,13 +190,16 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
         DCD_1X +=  0.5         * np.einsum('kldc,ildb,kjac -> ijab',Woovv,t2,t2)
 
 
+        # First mixed ring-ladder term
         DCD_4   = -2           * np.einsum('klcd,ilcd,kjab -> ijab',Woovv,t2,t2)
         DCD_4  +=                np.einsum('kldc,ilcd,kjab -> ijab',Woovv,t2,t2)
 
 
+        # Second mixed ring-ladder term
         DCD_3   = -2           * np.einsum('klcd,klad,ijcb -> ijab',Woovv,t2,t2)
         DCD_3  +=                np.einsum('lkcd,klad,ijcb -> ijab',Woovv,t2,t2)
 
+        # Pure ladder term
         DCD_5   =  0.5         * np.einsum('mnef,ijef,mnab -> ijab',Woovv,t2,t2)
 
 
@@ -202,6 +218,19 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
         elif method == 'ACPD45':
             #ACPD45
             temp = DCD_4 +  DCD_5
+
+        elif method == 'pCCD':
+            #parametrized CCD, takes two parameters alpha and beta
+            # alpha=1 , beta=1 is CCD
+            temp = beta * (DCD_1C + DCD_1X + DCD_3) +  \
+                   alpha * ((0.5 * DCD_4) + DCD_5) + 0.5 * DCD_4
+
+        elif method == 'pDCD':
+            #This is an experiment
+            #parametrized DCD, takes three parameters alpha, beta and gamma
+            # alpha=1 , beta=1, gamma=1 is CCD
+            temp = beta * (DCD_1C + 0.5 * DCD_3) + gamma *(DCD_1X + 0.5 * DCD_3 ) + \
+                   alpha * ((0.5 * DCD_4) + DCD_5) + 0.5 * DCD_4
 
         elif method == 'ACPD1':
             temp = DCD_1C
@@ -232,8 +261,19 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
 
         if method2 == "normal":
             t2_new = t2_new
-        if method2 == "singlet":
+        if (method2 == "singlet" or method2 == "pairsinglet"):
             t2_new = (t2_new + np.einsum('ijab->ijba',t2_new))/2 ##SINGLET CCD0
+            # Pair CCD or pair CID is a drastic approximation to singlet CCD/singlet CID 
+            # Need to zero all off-diagonal elements
+            if method2 == "pairsinglet" :
+                for i in range(0,nel):
+                   for j in range(0,nel):
+                      for a in range(nel,tot):
+                         for b in range(nel,tot):
+                            if i != j or a !=b :
+                               t2[i,j,a-occ,b-occ] = 0.0
+
+
         if method2 == "triplet":
             t2_new = (t2_new - np.einsum('ijab->ijba',t2_new))/2 ##TRIPLET CCD0
 
@@ -309,6 +349,11 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
 
 
     print("\nCCD Energy               :%16.12f" % (Escf+E_cc))
+    if (method == 'pCCD' or method == 'pDCD') : 
+            print(" You just did a paramterized CCD/DCD calculation with parameters" )
+            print(" alpha       = %16.12f" % (alpha))
+            print(" beta        = %16.12f" % (beta))
+            print(" gamma       = %16.12f" % (gamma))
     #print("\n CCD Energy/site          :%16.12f" % (E_cc/tot))
 
     return E_cc,t2_new

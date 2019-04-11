@@ -13,7 +13,7 @@ numpy_memory = 2 # numpy memory limit (2GB)
 
 ##Parameters
 U = 5
-t_ratio = 0.5
+t_ratio = 1.0
 
 #Active Space
 n_orb   = 6
@@ -58,7 +58,15 @@ E_dc, t2d   = run_ccd_method(orb,h,g,n_elec//2,t2=None,method="DCD",method2="nor
 E_cc, t2   = run_ccd_method(orb,h,g,n_elec//2,t2d,method="CCD",method2="normal",diis_start=50)
 E_ccs, t2s = run_ccd_method(orb,h,g,n_elec//2,t2=None,method="CCD",method2="singlet",diis=False)
 E_cct, t2t = run_ccd_method(orb,h,g,n_elec//2,t2=None,method="CCD",method2="triplet", diis=False)
-E_cc, t2   = run_ccd_method(orb,h,g,n_elec//2,t2d,method="CID",method2="normal",diis_start=10)
+E_cid, c2   = run_ccd_method(orb,h,g,n_elec//2,t2d,method="CID",method2="normal",diis=False)
+E_cid_s, c2_s   = run_ccd_method(orb,h,g,n_elec//2,t2d,method="CID",method2="singlet",diis=False)
+E_cid_t, c2_t   = run_ccd_method(orb,h,g,n_elec//2,t2d,method="CID",method2="triplet",diis=False)
+E_pair_ccd, t2_pair_s      = run_ccd_method(orb,h,g,n_elec//2,t2d,method="CCD",method2="pairsinglet",diis=False)
+E_pair_cid, c2_pair_s      = run_ccd_method(orb,h,g,n_elec//2,t2d,method="CID",method2="pairsinglet",diis=False)
+E_cc_pccd11,  t2_pccd11   = run_ccd_method(orb,h,g,n_elec//2,t2d,method="pCCD",method2="normal", 
+                            diis_start=50,alpha=1.0,beta=1.0)
+E_cc_pccd10,  t2_pccd10   = run_ccd_method(orb,h,g,n_elec//2,t2d,method="pCCD",method2="normal",  
+                            diis_start=50,alpha=1.0,beta=0.0)
 print(" CID                  :%16.10f" %E_cc)
 t2 = t2.ravel()
 t2s = t2s.ravel()
@@ -68,6 +76,9 @@ t2d = t2d.ravel()
 e_tot_cc = E_cc + Escf
 e_tot_ccs = E_ccs + Escf
 e_tot_cct = E_cct + Escf
+e_tot_cid = E_cid + Escf
+e_tot_cid_s = E_cid_s + Escf
+e_tot_cid_t = E_cid_t + Escf
 e_tot_dc  = E_dc  + Escf
 #help(run_ccd_method)
 for i in range(t2.shape[0]):
@@ -82,5 +93,8 @@ print(" FCI                  :%16.10f" %efci)
 print("%16.8f %16.8f %16.8f %16.8f"%(E_cc,E_ccs,E_cct,E_dc))
 print("         CCD              CCD0             CCD1            DCD")
 print("%16.8f %16.8f %16.8f %16.8f"%(e_tot_cc,e_tot_ccs,e_tot_cct,e_tot_dc))
+print("%16.8f %16.8f %16.8f %16.8f"%(E_cid,E_cid_s,E_cid_t,E_dc))
+print("         CID              CID0             CID1            DCD")
+print("%16.8f %16.8f %16.8f %16.8f"%(e_tot_cid,e_tot_cid_s,e_tot_cid_t,e_tot_dc))
 print(ci.shape)
 print(ci)
