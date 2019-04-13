@@ -69,6 +69,9 @@ Escf = 2 * he +  2 * Je - Ke
 
 E_cc, t2   = run_ccd_method(orb,h,g,nel,t2=None,method="CCD",method2="normal",diis=False)
 E_cc, t2   = run_ccd_method(orb,h,g,nel,t2=None,method="CID",method2="normal",diis=False)
+E_cc, t2   = run_ccd_method(orb,h,g,nel,t2=None,method="directringCCD",method2="normal",diis=False)
+E_cc, t2   = run_ccd_method(orb,h,g,nel,t2=None,method="directringCCD+SOSEX",method2="normal",diis=False)
+E_cc, t2   = run_ccd_method(orb,h,g,nel,t2=None,method="pCCD",method2="normal",diis=False, alpha=1.0, beta=0.0)
 
 e_tot_cc = E_cc + Escf
 

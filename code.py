@@ -169,7 +169,17 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
         L3_ijab  +=  np.einsum('jmbe,maei -> ijab',t2,Wovvo)
         L3_ijab  +=  np.einsum('jmbe,maie -> ijab',t2,Wovov)
 
-        Rijab    += L1_ijab + L2_ijab + L3_ijab
+        if (method != 'ringCCD' and  method!= 'directringCCD' and method!= 'directringCCD+SOSEX') :
+             Rijab    += L1_ijab + L2_ijab + L3_ijab
+        elif (method == 'ringCCD'):
+             Rijab    += L3_ijab
+        elif (method == 'directringCCD' and method!= 'directringCCD+SOSEX'):
+        # include just the coulomb part of this ring diagram, loss of antisymmetry in t2 amplitudes
+        # t2_d_ring("a,b,i,j") = 0.5 * (2.0 * g_aijb("c,j,k,b")) * (2.0 * t2("a,c,i,k"));
+        # Will add this term later with the quadratic term
+             Rijab    += 0.0 * L3_ijab
+
+
 
         # Quadratic in T2 terms
 
@@ -235,6 +245,18 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
         elif method == 'ACPD1':
             temp = DCD_1C
 
+        elif method == 'ringCCD':
+            temp = DCD_1C + DCD_1X
+
+        elif (method == 'directringCCD' or method == 'directringCCD+SOSEX'):
+        # Include the coulomb part of the ring diagram, sacrifice antisymmetry of t2 amplitudes    
+        # t2_d_ring("a,b,i,j") = 0.5 * (2.0 * g_aijb("c,j,k,b")) * (2.0 * t2("a,c,i,k"));
+        # t2_dd_D_c("a,b,i,j")  = 0.5 * g_ijab("k,l,c,d") * (2.0 * t2("a,d,i,l") ) *( 2.0 * t2("c,b,k,j") );
+            L3_drCCD   =  2.0         * np.einsum('jcbk,ikac -> ijab',Wovvo,t2)
+            Q_DCD_1C   =  0.5 * 2 * 2 * np.einsum('klcd,ilad,kjcb -> ijab',Woovv,t2,t2)
+
+            temp = L3_drCCD + Q_DCD_1C  
+
         elif method == 'LCC':
             temp = 0 * DCD_1C 
 
@@ -250,10 +272,11 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
             temp3 = - E_cc * t2 
 
 
-        #this should go to zero at convergenec
+        #this should go to zero at convergence
         #print((Rijab + temp3)-t2*Dijab)
 
         t2_new = (Rijab + temp3)/Dijab
+
         #t2_new = (Rijab + DCD_1C)/Dijab
         #t2_new = (Rijab + DCD_1X)/Dijab
         #t2_new = (Rijab)/Dijab
@@ -331,6 +354,12 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
 
 
         E_cc_new = 2 * np.einsum('ijab,ijab',t2_new,gov) - np.einsum('ijab,ijba',t2_new,gov) 
+        if method == 'directringCCD' :
+            # E1 =    TA::dot(g_abij("a,b,i,j") + r2("a,b,i,j"), 2 * t2("a,b,i,j"));
+            # E_SOSEX = TA::dot(g_abij("a,b,i,j") + r2("a,b,i,j"), 2*t2("a,b,i,j") - t2("a,b,j,i"));
+            E_cc_new = 2 * np.einsum('ijab,ijab',t2_new,gov)    
+
+
         E_diff = abs(E_cc - E_cc_new)
 
         drms = np.sqrt(np.sum(np.square(t2_new - t2)))/(nCr(occ,2)*nCr(vir,2))
