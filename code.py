@@ -5,6 +5,33 @@ import itertools as it
 import copy as cp
 from numpy import linalg as LA
 
+def get_hubbard_params_ncene(n_cene,beta,U):
+# {{{
+    #gets the interactions for linear acene
+    #n_cene 1 for benzene 2 for napthalene
+    #indexing runs such that the numbering is symmetric
+
+
+    n_site = 2 + n_cene * 4
+    t = np.zeros((n_site,n_site))
+
+    for i in range(0,n_site//2):
+        t[i,i+1] = 1 
+        t[i+1,i] = 1 
+        t[n_site-i-1,n_site-i-2] = 1 
+        t[n_site-i-2,n_site-i-1] = 1 
+        if i % 2 == 0:
+            t[i,n_site-i-1] = 1
+            t[n_site-i-1,i] = 1
+
+    h_local = -beta  * t 
+
+    g_local = np.zeros((n_site,n_site,n_site,n_site))
+    for i in range(0,n_site):
+        g_local[i,i,i,i] = U
+            
+    return n_site,t,h_local,g_local
+    # }}}
 
 def run_hubbard_scf(h_local,g_local,closed_shell_nel,t):
 # {{{
