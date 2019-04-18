@@ -96,6 +96,14 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
                     t2[i,j,a-occ,b-occ] = (g[i,j,a,b]/Dijab[i,j,a-occ,b-occ]) 
     else:
         assert(t2.shape == (occ,occ,vir,vir))
+        if method2 == 'pairsinglet':
+            #t2 = (t2 + np.einsum('ijab->ijba',t2))/2 ##SINGLET CCD0
+            for i in range(0,occ):
+                for j in range(0,occ):
+                    for a in range(0,vir):
+                        for b in range(0,vir):
+                            if a !=b or i !=j:
+                                t2[i,j,a,b] = 0.0
 
     t2_pehla = cp.deepcopy(t2)
 
@@ -284,20 +292,35 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
 
         if method2 == "normal":
             t2_new = t2_new
-        if (method2 == "singlet" or method2 == "pairsinglet"):
+        elif method2 == "singlet":
+            t2_new = (t2_new + np.einsum('ijab->ijba',t2_new))/2 ##SINGLET CCD0
+            
+        elif method2 == "pairsinglet":
             t2_new = (t2_new + np.einsum('ijab->ijba',t2_new))/2 ##SINGLET CCD0
             # Pair CCD or pair CID is a drastic approximation to singlet CCD/singlet CID 
             # Need to zero all off-diagonal elements
-            if method2 == "pairsinglet" :
-                for i in range(0,nel):
-                   for j in range(0,nel):
-                      for a in range(nel,tot):
-                         for b in range(nel,tot):
-                            if i != j or a !=b :
-                               t2[i,j,a-occ,b-occ] = 0.0
+            for i in range(0,occ):
+                for j in range(0,occ):
+                    for a in range(0,vir):
+                        for b in range(0,vir):
+                            if a !=b or i !=j:
+                                t2_new[i,j,a,b] = 0.0
+            #t2_new = t2_new.swapaxes(1,2)
+            #print(t2_new[0,0,:,:])
+            #print(t2_new[1,1,:,:])
+            #print(t2_new[2,2,:,:])
+            #print(t2_new[3,3,:,:])
+            #print(t2_new[4,4,:,:])
+            #print(t2_new[:,:,0,0])
+            #print(t2_new[:,:,1,1])
+            #print(t2_new[:,:,2,2])
+            #print(t2_new[:,:,3,3])
+            #print(t2_new.shape)
+            #t2_new.shape = (occ*vir*occ*vir)
+            #print(t2_new)
 
 
-        if method2 == "triplet":
+        elif method2 == "triplet":
             t2_new = (t2_new - np.einsum('ijab->ijba',t2_new))/2 ##TRIPLET CCD0
 
 
@@ -384,6 +407,8 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
             print(" beta        = %16.12f" % (beta))
             print(" gamma       = %16.12f" % (gamma))
     #print("\n CCD Energy/site          :%16.12f" % (E_cc/tot))
+    print(method)
+    print(method2)
 
     return E_cc,t2_new
 # }}}
