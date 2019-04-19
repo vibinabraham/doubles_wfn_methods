@@ -4,6 +4,7 @@ from math import factorial
 import itertools as it
 import copy as cp
 from numpy import linalg as LA
+from code import *
 
 from sys import argv
 
@@ -11,8 +12,8 @@ np.set_printoptions(precision=5, linewidth=200, suppress=True)
 
 def run_scf(S, H, g, nel):
 # {{{
-    e_conv = 1E-10
-    d_conv = 1E-10
+    e_conv = 1E-8
+    d_conv = 1E-8
 
     sal, svec = np.linalg.eigh(S)
     idx = sal.argsort()[::-1]
@@ -37,7 +38,7 @@ def run_scf(S, H, g, nel):
 
     print("Iter     Electronic Energy     E_conv            RMS D")
     print("----------------------------------------------------------")
-    for iteration in range(200):
+    for iteration in range(2000):
         J = np.einsum("pqrs,rs->pq", g, D)
         K = np.einsum("prqs,rs->pq", g, D)
         #K = np.einsum("prsq,rs->pq",g,D)
@@ -63,10 +64,14 @@ def run_scf(S, H, g, nel):
         print("%6d %16.8f %16.8f %16.8f" %(iteration,E_electric,E_diff,dconv))
         
     print(C)
-    print()
+    print(F)
+    print(H)
+    print("CORE             %16.10f" %np.sum(2*H * D))
+    print("COULOUMB         %16.10f" %np.sum(2*J * D))
+    print("EXCHANGE         %16.10f" %np.sum(- K * D))
     print("Electronic Energy = %16.12f" % (E_electric))
     print()
-    return E_electric, C
+    return E_electric, C, Eorb
 # }}}
 
 def PPP_MN_eri(U,R):
@@ -90,7 +95,7 @@ def PPP_Ohno_eri(U,R):
     return V
 # }}}
 
-def get_ppp_params_ncene(n_cene,beta,U,Vij):
+def get_ppp_params_ncene(n_cene,beta,U,dist):
 # {{{
     #gets the interactions for linear acene
     #n_cene 1 for benzene 2 for napthalene
@@ -112,29 +117,15 @@ def get_ppp_params_ncene(n_cene,beta,U,Vij):
     h_local = -beta  * t 
 
 
-    V = np.zeros((n_site,n_site)) 
-    for i in range(0,n_site//2):
-        V[i,i+1] = Vij 
-        V[i+1,i] = Vij
-        V[n_site-i-1,n_site-i-2] = Vij
-        V[n_site-i-2,n_site-i-1] = Vij
-        if i % 2 == 0:
-            V[i,n_site-i-1] = Vij
-            V[n_site-i-1,i] = Vij
-    print("Vij")
-    print(V)
-    print()
-
+    V = np.zeros((6,6))
+    for i in range(0,dist.shape[0]):
+        for j in range(0,dist.shape[0]):
+            V[i,j] = PPP_MN_eri(U,dist[i,j])
 
     g_local = np.zeros((n_site,n_site,n_site,n_site))
     for i in range(0,n_site):
-        g_local[i,i,i,i] = U
-        for j in range(i+1,n_site):
-            g_local[i,j,i,j] = V[i,j]
-            g_local[j,i,i,j] = V[i,j]
-            g_local[i,j,j,i] = V[i,j]
-            g_local[j,i,j,i] = V[i,j]
-    print(g_local[0,3,:,:])
+        for j in range(0,n_site):
+            g_local[i,i,j,j] = V[i,j]
             
     return n_site,t,h_local,g_local
     # }}}
@@ -552,33 +543,40 @@ def next_index(a_index, n, k):
     return True
     #}}}
 
-
-n_cene =1
-n_site =6
-R = 1.4
-U = 10.84
-#U = 5
-beta = 5.0
-
-Vij = PPP_MN_eri(U,R)
-
-n_site,t,h_local,g_local = get_ppp_params_ncene(n_cene,beta,U,Vij)
-#n_site,t,h_local,g_local = get_hubbard_params_ncene(n_cene,beta,U)
-print(h_local)
-
-n_elec = n_site
-n_orb  = n_site
-
-Escf,C = run_scf(np.eye(n_site),h_local,g_local,n_elec//2)
+def run_hubbard_scf(h_local,g_local,n_elec,t):
+# {{{
+    print()
+    print(" ---------------------------------------------------------")
+    print("              Delocalized Mean-Field")
+    print(" ---------------------------------------------------------")
+    orb, C = np.linalg.eigh(h_local)
+    if np.sum(h_local) == 0:
+        print("why")
+        orbt, C = np.linalg.eigh(t)
 
 
-HHH = run_fci(h_local,g_local,n_orb, 3, 3)
-e0 = np.linalg.eigvalsh(HHH)
-print(e0[0])
+    print("Orbital energies:\n",orb,"\n")
 
+    H = C.T @ h_local @ C                             
 
+    g = np.einsum("pqrs,pl->lqrs",g_local,C)
+    g = np.einsum("lqrs,qm->lmrs",g,C)
+    g = np.einsum("lmrs,rn->lmns",g,C)
+    g = np.einsum("lmns,so->lmno",g,C)
 
-print((e0[0]- Escf)/6)
+    scf_nel = n_elec //2 #closed shell
+
+    o = slice(0, scf_nel)
+    v = slice(scf_nel, h_local.shape[0])
+
+    Escf = 2*np.einsum('ii',H[o,o]) + 2*np.einsum('pqpq',g[o,o,o,o]) - np.einsum('ppqq',g[o,o,o,o])  
+
+    print("Mean Field Energy        :%16.12f" % (Escf))
+
+    print(C)
+
+    return Escf,orb,H,g,C
+# }}}
 
 from sys import argv
 filename = argv[1]
@@ -625,25 +623,31 @@ for i in range(0,natom) :
 		dist[i][j]   = math.sqrt(dist_x**2+dist_y**2+dist_z**2)
 
 
-#def Vij_4m_Rij(D):
-Vij = np.zeros((6,6))
-for i in range(0,dist.shape[0]):
-    for j in range(0,dist.shape[0]):
-        print(PPP_MN_eri(U,dist[i,j]))
-        Vij[i,j] = PPP_MN_eri(U,dist[i,j])
+n_cene =1
+n_site =6
+R = 1.4
+U = 10.84
+#U = 5
+beta =  2.0
 
-print(Vij)
+n_site,t,h_local,g_local = get_ppp_params_ncene(n_cene,beta,U,dist)
+n_elec = n_site
+n_orb  = n_site
 
-    
-g_local = np.zeros((n_site,n_site,n_site,n_site))
-for i in range(0,n_site):
-    for j in range(0,n_site):
-        g_local[i,j,i,j] = Vij[i,j]
-        g_local[j,i,i,j] = Vij[i,j]
-        g_local[i,j,j,i] = Vij[i,j]
-        g_local[j,i,j,i] = Vij[i,j]
-
-Escf,C = run_scf(np.eye(n_site),h_local,g_local,n_elec//2)
+Escf,C, orb = run_scf(np.eye(n_site),h_local,g_local,n_elec//2)
 HHH = run_fci(h_local,g_local,n_orb, 3, 3)
 e0 = np.linalg.eigvalsh(HHH)
 print(e0[0])
+print((e0[0]- Escf)/6)
+
+
+g = np.einsum("pqrs,pl->lqrs",g_local,C)
+g = np.einsum("lqrs,qm->lmrs",g,C)
+g = np.einsum("lmrs,rn->lmns",g,C)
+g = np.einsum("lmns,so->lmno",g,C)
+
+h = C.T @ h_local @ C
+
+Ecc, t2 =  run_ccd_method(orb, h, g, n_elec//2,diis=False)
+
+

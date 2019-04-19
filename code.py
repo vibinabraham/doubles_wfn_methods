@@ -1,6 +1,5 @@
 import numpy as np
 from math import factorial
-from scipy.special import comb
 import itertools as it
 import copy as cp
 from numpy import linalg as LA
