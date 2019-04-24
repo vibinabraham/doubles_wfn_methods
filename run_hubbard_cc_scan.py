@@ -25,8 +25,8 @@ n_b = min(k, n_elec - k)
 
 
 #loop inputs
-start_ratio =  1.00
-stop_ratio  =  0.10
+start_ratio =  0.80
+stop_ratio  =  0.60
 step_size   =  0.10
 
 ######### Integrals (local) hubbard
@@ -62,14 +62,17 @@ n_steps = int((start_ratio - stop_ratio)/step_size)
 assert(n_steps > 0)
 print("\nNumber of Calculations " ,n_steps)
 
-dcde = []
-ccdt_e = []
-ex_ccdt = []
-dcdt = []
-cc3_e = []
-ccm3_e = []
-exacpd14t = []
-dcdut = []
+nocc = n_elec//2
+nvir = h_local.shape[0] - n_elec//2
+c2 = np.zeros((nocc,nocc,nvir,nvir))
+
+dcd_e = []
+ccd_e = []
+ccd0_e = []
+ccd1_e = []
+cid_e = []
+cid0_e = []
+cid1_e = []
 beta = []
 for i in range(0,n_steps+1):
 
@@ -81,10 +84,30 @@ for i in range(0,n_steps+1):
     beta.append(ratio)
 
     print("Current ratio %16.8f" %ratio)
-    E_cc, t2d   = run_ccd_method(orb,h,g,n_elec//2,t2=t2,method="DCD",method2="normal",diis_start=40)
-    E_cc, t2   = run_ccd_method(orb,h,g,n_elec//2,t2d,method="CCD",method2="normal",diis_start=50)
-    E_ccs, t2s = run_ccd_method(orb,h,g,n_elec//2,t2d,method="CCD",method2="singlet",diis=False)
-    E_cct, t2t = run_ccd_method(orb,h,g,n_elec//2,t2=None,method="CCD",method2="triplet", diis=False)
-    E_cid, c2   = run_ccd_method(orb,h,g,n_elec//2,t2d,method="CID",method2="normal",diis=False)
-    E_cid_s, c2_s   = run_ccd_method(orb,h,g,n_elec//2,t2d,method="CID",method2="singlet",diis=False)
-    E_cid_t, c2_t   = run_ccd_method(orb,h,g,n_elec//2,t2d,method="CID",method2="triplet",diis=False)
+    dcd_ee, t2d   = run_ccd_method(orb2,h2,g,n_elec//2,t2=t2,method="DCD",method2="normal",diis_start=40)
+    ccd_ee, t2   = run_ccd_method(orb2,h2,g,n_elec//2,t2d,method="CCD",method2="normal",diis_start=50)
+    ccd0_ee, t2s = run_ccd_method(orb2,h2,g,n_elec//2,t2d,method="CCD",method2="singlet",diis=False)
+    ccd1_ee, t2t = run_ccd_method(orb2,h2,g,n_elec//2,t2=None,method="CCD",method2="triplet", diis=False)
+    cid_ee, c2   = run_ccd_method(orb2,h2,g,n_elec//2,c2,method="CID",method2="normal",diis=False, damp_ratio=0.9)
+    cid0_ee, c2_s   = run_ccd_method(orb2,h2,g,n_elec//2,c2,method="CID",method2="singlet",diis=False)
+    cid1_ee, c2_t   = run_ccd_method(orb2,h2,g,n_elec//2,c2,method="CID",method2="triplet",diis=False)
+
+
+    dcd_e.append(dcd_ee)
+    ccd_e.append(ccd_ee)
+    ccd0_e.append(ccd0_ee)
+    ccd1_e.append(ccd1_ee)
+    cid_e.append(cid_ee)
+    cid0_e.append(cid0_ee)
+    cid1_e.append(cid1_ee)
+
+
+for i in range(len(beta)): 
+    print("Current beta %16.8f" %beta[i])
+    print("DCD  %16.8f" %(dcd_e[i]/6))
+    print("CCD  %16.8f" %(ccd_e[i]/6))
+    print("CCD0 %16.8f" %(ccd0_e[i]/6))
+    print("CCD1 %16.8f" %(ccd1_e[i]/6))
+    print("CID  %16.8f" %(cid_e[i]/6))
+    print("CID0 %16.8f" %(cid0_e[i]/6))
+    print("CID1 %16.8f" %(cid1_e[i]/6))
