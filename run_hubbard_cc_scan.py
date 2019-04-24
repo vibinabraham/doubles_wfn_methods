@@ -10,6 +10,7 @@ numpy_memory = 2 # numpy memory limit (2GB)
 
 
 ##Parameters
+n_cene = 2
 U = 5
 
 #Active Space
@@ -24,31 +25,24 @@ n_b = min(k, n_elec - k)
 
 
 
-#loop inputs
+#loop inputs (beta)
 start_ratio =  0.80
 stop_ratio  =  0.60
 step_size   =  0.10
 
-######### Integrals (local) hubbard
-t = np.zeros((n_orb,n_orb))
-for i in range(0,n_orb-1):
-    t[i,i+1] = 1
-    t[i+1,i] = 1
-t[0,n_orb-1] = 1
-t[n_orb-1,0] = 1
 
-h_local = -start_ratio  * t 
-g_local = np.zeros((n_orb,n_orb,n_orb,n_orb))
-for i in range(0,n_orb):
-    g_local[i,i,i,i] = U
 
+n_site,t,h_local,g_local = get_hubbard_params_ncene(n_cene,start_ratio,U)
+
+#Active Space
+n_orb  = n_site
+n_elec = n_site
+nel = n_elec//2
 
 
 print("\nHubbard Hamiltonian\n")
 
 print("Number of orbitals     : {}".format(n_orb))
-print("Number of alpha string : {}".format(n_a))
-print("Number of beta string  : {}".format(n_b))
 print("Coulomb Repulsion (U)  : {}".format(U))
 print("Tight binding (t)      : \n{}".format(h_local))
 print()
@@ -74,6 +68,7 @@ cid_e = []
 cid0_e = []
 cid1_e = []
 beta = []
+beta_v = []
 for i in range(0,n_steps+1):
 
     ratio =  start_ratio - i * step_size
@@ -81,7 +76,7 @@ for i in range(0,n_steps+1):
     orb2 = (ratio/start_ratio) * orb
     h2 =  (ratio/start_ratio)  * h
 
-    beta.append(ratio)
+    beta_v.append(ratio)
 
     print("Current ratio %16.8f" %ratio)
     dcd_ee, t2d   = run_ccd_method(orb2,h2,g,n_elec//2,t2=t2,method="DCD",method2="normal",diis_start=40)

@@ -1,10 +1,36 @@
 import numpy as np
 from math import factorial
-from scipy.special import comb
 import itertools as it
 import copy as cp
 from numpy import linalg as LA
 
+def get_hubbard_params_ncene(n_cene,beta,U):
+# {{{
+    #gets the interactions for linear acene
+    #n_cene 1 for benzene 2 for napthalene
+    #indexing runs such that the numbering is symmetric
+
+
+    n_site = 2 + n_cene * 4
+    t = np.zeros((n_site,n_site))
+
+    for i in range(0,n_site//2):
+        t[i,i+1] = 1 
+        t[i+1,i] = 1 
+        t[n_site-i-1,n_site-i-2] = 1 
+        t[n_site-i-2,n_site-i-1] = 1 
+        if i % 2 == 0:
+            t[i,n_site-i-1] = 1
+            t[n_site-i-1,i] = 1
+
+    h_local = -beta  * t 
+
+    g_local = np.zeros((n_site,n_site,n_site,n_site))
+    for i in range(0,n_site):
+        g_local[i,i,i,i] = U
+            
+    return n_site,t,h_local,g_local
+    # }}}
 
 def run_hubbard_scf(h_local,g_local,closed_shell_nel,t):
 # {{{
@@ -55,6 +81,7 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
     print("                     Method2 :",method2)
     print(" ---------------------------------------------------------")
     print("")
+    conv = False
 
     print("WARNING -transforming to physicist notation")
     g = g.swapaxes(1,2)
@@ -78,7 +105,6 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
     print(Escf)
 
 
-    t2    = np.zeros((occ,occ,vir,vir))
     Dijab = np.zeros((occ,occ,vir,vir))
     Rijab = np.zeros((occ,occ,vir,vir))
     for i in range(0,nel):
@@ -96,6 +122,9 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
                     t2[i,j,a-occ,b-occ] = (g[i,j,a,b]/Dijab[i,j,a-occ,b-occ]) 
     else:
         assert(t2.shape == (occ,occ,vir,vir))
+        if method2 == "singlet":
+            t2 = (t2 + np.einsum('ijab->ijba',t2))/2 ##SINGLET CCD0
+
 
     t2_pehla = cp.deepcopy(t2)
 
@@ -284,20 +313,35 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
 
         if method2 == "normal":
             t2_new = t2_new
-        if (method2 == "singlet" or method2 == "pairsinglet"):
+        elif method2 == "singlet":
+            t2_new = (t2_new + np.einsum('ijab->ijba',t2_new))/2 ##SINGLET CCD0
+            
+        elif method2 == "pairsinglet":
             t2_new = (t2_new + np.einsum('ijab->ijba',t2_new))/2 ##SINGLET CCD0
             # Pair CCD or pair CID is a drastic approximation to singlet CCD/singlet CID 
             # Need to zero all off-diagonal elements
-            if method2 == "pairsinglet" :
-                for i in range(0,nel):
-                   for j in range(0,nel):
-                      for a in range(nel,tot):
-                         for b in range(nel,tot):
-                            if i != j or a !=b :
-                               t2[i,j,a-occ,b-occ] = 0.0
+            for i in range(0,occ):
+                for j in range(0,occ):
+                    for a in range(0,vir):
+                        for b in range(0,vir):
+                            if a !=b or i !=j:
+                                t2_new[i,j,a,b] = 0.0
+            #t2_new = t2_new.swapaxes(1,2)
+            #print(t2_new[0,0,:,:])
+            #print(t2_new[1,1,:,:])
+            #print(t2_new[2,2,:,:])
+            #print(t2_new[3,3,:,:])
+            #print(t2_new[4,4,:,:])
+            #print(t2_new[:,:,0,0])
+            #print(t2_new[:,:,1,1])
+            #print(t2_new[:,:,2,2])
+            #print(t2_new[:,:,3,3])
+            #print(t2_new.shape)
+            #t2_new.shape = (occ*vir*occ*vir)
+            #print(t2_new)
 
 
-        if method2 == "triplet":
+        elif method2 == "triplet":
             t2_new = (t2_new - np.einsum('ijab->ijba',t2_new))/2 ##TRIPLET CCD0
 
 
@@ -365,6 +409,7 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
         drms = np.sqrt(np.sum(np.square(t2_new - t2)))/(nCr(occ,2)*nCr(vir,2))
         print("%6d %16.8f %16.8f %16.6f" %(cc_iter,E_cc,E_diff,drms))
         if (abs(E_diff) < e_conv) and drms < d_conv:
+            conv = True
             break
         elif cc_iter == max_iter-1:
             print(" CCD did not converge")
@@ -384,8 +429,10 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
             print(" beta        = %16.12f" % (beta))
             print(" gamma       = %16.12f" % (gamma))
     #print("\n CCD Energy/site          :%16.12f" % (E_cc/tot))
+    print(method)
+    print(method2)
 
-    return E_cc,t2_new
+    return E_cc,t2_new, conv
 # }}}
 
 def nCr(n, r):

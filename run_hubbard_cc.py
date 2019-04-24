@@ -12,89 +12,65 @@ numpy_memory = 2 # numpy memory limit (2GB)
 
 
 ##Parameters
+n_cene = 2
 U = 5
-t_ratio = 1.0
+beta = 8
+
+
+n_site,t,h_local,g_local = get_hubbard_params_ncene(n_cene,beta,U)
 
 #Active Space
-n_orb   = 6
-n_elec  = 6
-ms      = 0     #only takes positive numbers (coded such that \alpha string more that \beta always)
-
-
-k = n_elec // 2 + ms
-n_a = max(k, n_elec - k)
-n_b = min(k, n_elec - k)
-
-
-
-######### Integrals (local) hubbard
-t = np.zeros((n_orb,n_orb))
-for i in range(0,n_orb-1):
-    t[i,i+1] = 1
-    t[i+1,i] = 1
-t[0,n_orb-1] = 1
-t[n_orb-1,0] = 1
-
-h_local = -t_ratio  * t 
-g_local = np.zeros((n_orb,n_orb,n_orb,n_orb))
-for i in range(0,n_orb):
-    g_local[i,i,i,i] = U
+n_orb  = n_site
+n_elec = n_site
+nel = n_elec//2
 
 
 
 print("\nHubbard Hamiltonian\n")
 
 print("Number of orbitals     : {}".format(n_orb))
-print("Number of alpha string : {}".format(n_a))
-print("Number of beta string  : {}".format(n_b))
 print("Coulomb Repulsion (U)  : {}".format(U))
 print("Tight binding (t)      : \n{}".format(h_local))
 print()
 
+Escf,orb,h,g,C = run_hubbard_scf(5 * h_local,g_local,n_elec//2,t)
+E_cc, t2,cc   = run_ccd_method(orb,h,g,nel,t2=None,method="ACPD45",method2="normal",diis=False,damp_ratio=0.9)
+E_cc, c2,cc   = run_ccd_method(orb,h,g,nel,t2=t2  ,method="CID"   ,method2="normal",diis=False,damp_ratio=0.9)
 
 Escf,orb,h,g,C = run_hubbard_scf(h_local,g_local,n_elec//2,t)
 
-E_dc, t2d   = run_ccd_method(orb,h,g,n_elec//2,t2=None,method="DCD",method2="normal",diis=False)
-E_cc, t2   = run_ccd_method(orb,h,g,n_elec//2,t2d,method="CCD",method2="normal",diis_start=50)
-E_ccs, t2s = run_ccd_method(orb,h,g,n_elec//2,t2=None,method="CCD",method2="singlet",diis=False)
-E_cct, t2t = run_ccd_method(orb,h,g,n_elec//2,t2=None,method="CCD",method2="triplet", diis=False)
-E_cid, c2   = run_ccd_method(orb,h,g,n_elec//2,t2d,method="CID",method2="normal",diis=False)
-E_cid_s, c2_s   = run_ccd_method(orb,h,g,n_elec//2,t2d,method="CID",method2="singlet",diis=False)
-E_cid_t, c2_t   = run_ccd_method(orb,h,g,n_elec//2,t2d,method="CID",method2="triplet",diis=False)
-E_pair_ccd, t2_pair_s      = run_ccd_method(orb,h,g,n_elec//2,t2d,method="CCD",method2="pairsinglet",diis=False)
-E_pair_cid, c2_pair_s      = run_ccd_method(orb,h,g,n_elec//2,t2d,method="CID",method2="pairsinglet",diis=False)
-E_cc_pccd11,  t2_pccd11   = run_ccd_method(orb,h,g,n_elec//2,t2d,method="pCCD",method2="normal", 
-                            diis_start=50,alpha=1.0,beta=1.0)
-E_cc_pccd10,  t2_pccd10   = run_ccd_method(orb,h,g,n_elec//2,t2d,method="pCCD",method2="normal",  
-                            diis_start=50,alpha=1.0,beta=0.0)
-print(" CID                  :%16.10f" %E_cc)
-t2 = t2.ravel()
-t2s = t2s.ravel()
-t2t = t2t.ravel()
-t2d = t2d.ravel()
+E_cc1 , t2  ,conv1   = run_ccd_method(orb,h,g,nel,t2= t2   ,method="ACPD45"     ,method2="normal",diis=False,damp_ratio=0.95)
+E_cc2 , t2_ ,conv2   = run_ccd_method(orb,h,g,nel,t2= t2   ,method="ACPD14"     ,method2="normal",diis=False,damp_ratio=0.9)
+E_cc3 , t2  ,conv3   = run_ccd_method(orb,h,g,nel,t2= t2   ,method="DCD"        ,method2="normal",diis=False,damp_ratio=0.98)
+E_cc4 , t2_ ,conv4   = run_ccd_method(orb,h,g,nel,t2= t2   ,method="CCD"        ,method2="normal",diis=False,damp_ratio=0.99)
+E_cc5 , t2_ ,conv5   = run_ccd_method(orb,h,g,nel,t2= t2   ,method="LCC"        ,method2="normal",diis=False,damp_ratio=0.99)
+E_cc6 , t2_ ,conv6   = run_ccd_method(orb,h,g,nel,t2= t2   ,method="pCCD"       ,method2="normal",diis=False, alpha= 1.0, beta=0.0,damp_ratio = 0.95)
+E_cc7 , t2_ ,conv7   = run_ccd_method(orb,h,g,nel,t2= t2   ,method="pCCD"       ,method2="normal",diis=False, alpha=-1.0, beta=0.01,damp_ratio = 0.95)
+E_cc8 , t2_ ,conv8   = run_ccd_method(orb,h,g,nel,t2= t2   ,method="pCCD"       ,method2="normal",diis=False, alpha=-1.5, beta=0.01,damp_ratio = 0.95)
+E_cc9 , t2_ ,conv9   = run_ccd_method(orb,h,g,nel,t2= None ,method="pCCD"       ,method2="normal",diis=False, alpha=-2.0, beta=0.01,damp_ratio = 0.95)
+E_cc10, t2_ ,conv10  = run_ccd_method(orb,h,g,nel,t2= c2   ,method="CID"        ,method2="normal",diis=False,damp_ratio=0.99)
+E_cc11, t2_ ,conv11  = run_ccd_method(orb,h,g,nel,t2= t2   ,method="CCD"        ,method2="singlet",diis=False,damp_ratio=0.98)
+E_cc12, t2_ ,conv12  = run_ccd_method(orb,h,g,nel,t2= t2   ,method="CCD"        ,method2="triplet",diis=False,damp_ratio=0.98)
+E_cc13, t2_ ,conv13  = run_ccd_method(orb,h,g,nel,t2= t2   ,method="CID"        ,method2="singlet",diis=False,damp_ratio=0.98)
+E_cc14, t2_ ,conv14  = run_ccd_method(orb,h,g,nel,t2= t2   ,method="CID"        ,method2="triplet",diis=False,damp_ratio=0.98)
+E_cc15, t2_ ,conv15  = run_ccd_method(orb,h,g,nel,t2= t2   ,method="directringCCD",method2="normal",diis=False,damp_ratio=0.98)
+E_cc16, t2_ ,conv16  = run_ccd_method(orb,h,g,nel,t2= t2   ,method="directringCCD+SOSEX",method2="normal",diis=False,damp_ratio=0.98)
 
-e_tot_cc = E_cc + Escf
-e_tot_ccs = E_ccs + Escf
-e_tot_cct = E_cct + Escf
-e_tot_cid = E_cid + Escf
-e_tot_cid_s = E_cid_s + Escf
-e_tot_cid_t = E_cid_t + Escf
-e_tot_dc  = E_dc  + Escf
-#help(run_ccd_method)
-for i in range(t2.shape[0]):
-    print("%16.8f %16.8f %16.8f %16.8f"%(t2[i],t2s[i],t2t[i],t2d[i]))
-cisolver = fci.direct_spin1.FCI()
-efci, ci = cisolver.kernel(h, g, h.shape[1], (n_a,n_b), ecore=0)
 
-print("         Energy")
-print("ESCF %16.8f" %Escf)
-print(" FCI                  :%16.10f" %efci)
-
-print("%16.8f %16.8f %16.8f %16.8f"%(E_cc,E_ccs,E_cct,E_dc))
-print("         CCD              CCD0             CCD1            DCD")
-print("%16.8f %16.8f %16.8f %16.8f"%(e_tot_cc,e_tot_ccs,e_tot_cct,e_tot_dc))
-print("%16.8f %16.8f %16.8f %16.8f"%(E_cid,E_cid_s,E_cid_t,E_dc))
-print("         CID              CID0             CID1            DCD")
-print("%16.8f %16.8f %16.8f %16.8f"%(e_tot_cid,e_tot_cid_s,e_tot_cid_t,e_tot_dc))
-print(ci.shape)
-print(ci)
+print("Energy/site")
+print("ACPD45       %16.10f  %r" %(E_cc1 /n_orb,conv1 ))
+print("ACPD14       %16.10f  %r" %(E_cc2 /n_orb,conv2 ))
+print("DCD          %16.10f  %r" %(E_cc3 /n_orb,conv3 ))
+print("CCD          %16.10f  %r" %(E_cc4 /n_orb,conv4 ))
+print("LCC          %16.10f  %r" %(E_cc5 /n_orb,conv5 ))
+print("pCCD         %16.10f  %r" %(E_cc6 /n_orb,conv6 ))
+print("pCCD         %16.10f  %r" %(E_cc7 /n_orb,conv7 ))
+print("pCCD         %16.10f  %r" %(E_cc8 /n_orb,conv8 ))
+print("pCCD         %16.10f  %r" %(E_cc9 /n_orb,conv9 ))
+print("CID          %16.10f  %r" %(E_cc10/n_orb,conv10))
+print("CCDs         %16.10f  %r" %(E_cc11/n_orb,conv11))
+print("CCDt         %16.10f  %r" %(E_cc12/n_orb,conv12))
+print("CIDs         %16.10f  %r" %(E_cc13/n_orb,conv13))
+print("CIDt         %16.10f  %r" %(E_cc14/n_orb,conv14))
+print("drCC         %16.10f  %r" %(E_cc15/n_orb,conv15))
+print("drCCSOSex    %16.10f  %r" %(E_cc16/n_orb,conv16))

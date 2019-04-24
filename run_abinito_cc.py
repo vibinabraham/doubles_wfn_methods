@@ -66,6 +66,7 @@ Je  =  np.einsum('ppqq',g[:nel,:nel,:nel,:nel])
 Ke  =  np.einsum('pqqp',g[:nel,:nel,:nel,:nel])
 
 Escf = 2 * he +  2 * Je - Ke
+Escf = Escf + E_nu
 
 E_cc, t2   = run_ccd_method(orb,h,g,nel,t2=None,method="CCD",method2="normal",diis=False)
 E_cc, t2   = run_ccd_method(orb,h,g,nel,t2=None,method="CID",method2="normal",diis=False)
@@ -73,7 +74,7 @@ E_cc, t2   = run_ccd_method(orb,h,g,nel,t2=None,method="directringCCD",method2="
 E_cc, t2   = run_ccd_method(orb,h,g,nel,t2=None,method="directringCCD+SOSEX",method2="normal",diis=False)
 E_cc, t2   = run_ccd_method(orb,h,g,nel,t2=None,method="pCCD",method2="normal",diis=False, alpha=1.0, beta=0.0)
 
-e_tot_cc = E_cc + Escf
+e_tot_cc = E_cc + Escf 
 
 print("         Energy")
 print("ESCF                :%16.8f" %Escf)
