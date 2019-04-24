@@ -13,10 +13,22 @@ numpy_memory = 2 # numpy memory limit (2GB)
 n_cene = 2
 U = 5
 
+#Active Space
+n_orb   = 6
+n_elec  = 6
+ms      = 0     #only takes positive numbers (coded such that \alpha string more that \beta always)
+
+
+k = n_elec // 2 + ms
+n_a = max(k, n_elec - k)
+n_b = min(k, n_elec - k)
+
+
+
 #loop inputs (beta)
-start_ratio =  1.00
+start_ratio =  0.80
 stop_ratio  =  0.60
-step_size   =  0.20
+step_size   =  0.10
 
 
 
@@ -44,14 +56,18 @@ n_steps = int((start_ratio - stop_ratio)/step_size)
 assert(n_steps > 0)
 print("\nNumber of Calculations " ,n_steps)
 
-dcde = []
-ccdt_e = []
-ex_ccdt = []
-dcdt = []
-cc3_e = []
-ccm3_e = []
-exacpd14t = []
-dcdut = []
+nocc = n_elec//2
+nvir = h_local.shape[0] - n_elec//2
+c2 = np.zeros((nocc,nocc,nvir,nvir))
+
+dcd_e = []
+ccd_e = []
+ccd0_e = []
+ccd1_e = []
+cid_e = []
+cid0_e = []
+cid1_e = []
+beta = []
 beta_v = []
 for i in range(0,n_steps+1):
 
@@ -63,17 +79,30 @@ for i in range(0,n_steps+1):
     beta_v.append(ratio)
 
     print("Current ratio %16.8f" %ratio)
-    E_cc, t2   = run_ccd_method(orb,h,g,nel,t2=None,method="ACPD45",method2="normal",diis=True)
-    #E_cc, t2_  = run_ccd_method(orb,h,g,nel,t2= t2 ,method="ACPD14",method2="normal",diis=True)
-    #E_cc, t2_  = run_ccd_method(orb,h,g,nel,t2= t2 ,method="DCD"   ,method2="normal",diis=True)
-    #E_cc, t2_  = run_ccd_method(orb,h,g,nel,t2= t2 ,method="CCD"   ,method2="normal",diis=False)
-    #E_cc, t2_  = run_ccd_method(orb,h,g,nel,t2= t2 ,method="LCC"   ,method2="normal",diis=True)
-    #E_cc, t2_  = run_ccd_method(orb,h,g,nel,t2= t2 ,method="pCCD"  ,method2="normal",diis=False, alpha=1.0, beta=0.0)
-    #E_cc, t2_  = run_ccd_method(orb,h,g,nel,t2= t2 ,method="pCCD"  ,method2="normal",diis=True, alpha=-1.0, beta=1.0,damp_ratio = 0.9)
-    #E_cc, t2_  = run_ccd_method(orb,h,g,nel,t2= t2 ,method="pCCD"  ,method2="normal",diis=False, alpha=-1.5, beta=1.0,damp_ratio = 0.9)
-    #E_cc, t2_  = run_ccd_method(orb,h,g,nel,t2= t2 ,method="pCCD"  ,method2="normal",diis=False, alpha=-2.0, beta=1.0,damp_ratio = 0.9)
-    E_cc, t2_  = run_ccd_method(orb,h,g,nel,t2= t2 ,method="CID"   ,method2="normal",diis=False)
-    E_cc, t2_  = run_ccd_method(orb,h,g,nel,t2= t2 ,method="CCD"   ,method2="singlet",diis=False)
-    E_cc, t2_  = run_ccd_method(orb,h,g,nel,t2= t2 ,method="CCD"   ,method2="triplet",diis=False)
-    E_cc, t2_  = run_ccd_method(orb,h,g,nel,t2= t2 ,method="directringCCD",method2="normal",diis=False)
-    E_cc, t2_  = run_ccd_method(orb,h,g,nel,t2= t2 ,method="directringCCD+SOSEX",method2="normal",diis=False)
+    dcd_ee, t2d   = run_ccd_method(orb2,h2,g,n_elec//2,t2=t2,method="DCD",method2="normal",diis_start=40)
+    ccd_ee, t2   = run_ccd_method(orb2,h2,g,n_elec//2,t2d,method="CCD",method2="normal",diis_start=50)
+    ccd0_ee, t2s = run_ccd_method(orb2,h2,g,n_elec//2,t2d,method="CCD",method2="singlet",diis=False)
+    ccd1_ee, t2t = run_ccd_method(orb2,h2,g,n_elec//2,t2=None,method="CCD",method2="triplet", diis=False)
+    cid_ee, c2   = run_ccd_method(orb2,h2,g,n_elec//2,c2,method="CID",method2="normal",diis=False, damp_ratio=0.9)
+    cid0_ee, c2_s   = run_ccd_method(orb2,h2,g,n_elec//2,c2,method="CID",method2="singlet",diis=False)
+    cid1_ee, c2_t   = run_ccd_method(orb2,h2,g,n_elec//2,c2,method="CID",method2="triplet",diis=False)
+
+
+    dcd_e.append(dcd_ee)
+    ccd_e.append(ccd_ee)
+    ccd0_e.append(ccd0_ee)
+    ccd1_e.append(ccd1_ee)
+    cid_e.append(cid_ee)
+    cid0_e.append(cid0_ee)
+    cid1_e.append(cid1_ee)
+
+
+for i in range(len(beta)): 
+    print("Current beta %16.8f" %beta[i])
+    print("DCD  %16.8f" %(dcd_e[i]/6))
+    print("CCD  %16.8f" %(ccd_e[i]/6))
+    print("CCD0 %16.8f" %(ccd0_e[i]/6))
+    print("CCD1 %16.8f" %(ccd1_e[i]/6))
+    print("CID  %16.8f" %(cid_e[i]/6))
+    print("CID0 %16.8f" %(cid0_e[i]/6))
+    print("CID1 %16.8f" %(cid1_e[i]/6))
