@@ -130,7 +130,6 @@ def get_ppp_params_ncene(n_cene,beta,U,dist):
     return n_site,t,h_local,g_local
     # }}}
 
-
 def get_hubbard_params_ncene(n_cene,beta,U):
 # {{{
     #gets the interactions for linear acene
@@ -158,7 +157,6 @@ def get_hubbard_params_ncene(n_cene,beta,U):
             
     return n_site,t,h_local,g_local
     # }}}
-
 
 def run_fci(h_active,g_active,n_orb, n_a, n_b):
     # {{{

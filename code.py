@@ -81,6 +81,7 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
     print("                     Method2 :",method2)
     print(" ---------------------------------------------------------")
     print("")
+    conv = False
 
     print("WARNING -transforming to physicist notation")
     g = g.swapaxes(1,2)
@@ -104,7 +105,6 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
     print(Escf)
 
 
-    t2    = np.zeros((occ,occ,vir,vir))
     Dijab = np.zeros((occ,occ,vir,vir))
     Rijab = np.zeros((occ,occ,vir,vir))
     for i in range(0,nel):
@@ -122,14 +122,9 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
                     t2[i,j,a-occ,b-occ] = (g[i,j,a,b]/Dijab[i,j,a-occ,b-occ]) 
     else:
         assert(t2.shape == (occ,occ,vir,vir))
-        if method2 == 'pairsinglet':
-            #t2 = (t2 + np.einsum('ijab->ijba',t2))/2 ##SINGLET CCD0
-            for i in range(0,occ):
-                for j in range(0,occ):
-                    for a in range(0,vir):
-                        for b in range(0,vir):
-                            if a !=b or i !=j:
-                                t2[i,j,a,b] = 0.0
+        if method2 == "singlet":
+            t2 = (t2 + np.einsum('ijab->ijba',t2))/2 ##SINGLET CCD0
+
 
     t2_pehla = cp.deepcopy(t2)
 
@@ -414,6 +409,7 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
         drms = np.sqrt(np.sum(np.square(t2_new - t2)))/(nCr(occ,2)*nCr(vir,2))
         print("%6d %16.8f %16.8f %16.6f" %(cc_iter,E_cc,E_diff,drms))
         if (abs(E_diff) < e_conv) and drms < d_conv:
+            conv = True
             break
         elif cc_iter == max_iter-1:
             print(" CCD did not converge")
@@ -436,7 +432,7 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
     print(method)
     print(method2)
 
-    return E_cc,t2_new
+    return E_cc,t2_new, conv
 # }}}
 
 def nCr(n, r):
