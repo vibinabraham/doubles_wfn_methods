@@ -127,8 +127,8 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
     gov   = g[o,o,v,v]
                                                 
     Escf = 2*np.einsum('pp',hocc) + 2*np.einsum('pqpq',gocc) - np.einsum('pqqp',gocc)    
-    print(Escf)
-
+    #Escf = Escf + E_nu
+    #print(Escf)
 
     Dijab = np.zeros((occ,occ,vir,vir))
     Rijab = np.zeros((occ,occ,vir,vir))
@@ -158,9 +158,9 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
     E_cc = 2 * np.einsum('ijab,ijab',t2,gov) - np.einsum('ijab,ijba',t2,gov) 
     E_mp2 = E_cc
 
-    print(" SCF Energy      = %16.12f" % (Escf))
+    #print(" SCF Energy      = %16.12f" % (Escf))
     print(" MP2 Energy corr = %16.12f" % (E_cc))
-    print(" MP2 Energy      = %16.12f" % (Escf + E_cc))
+    #print(" MP2 Energy      = %16.12f" % (Escf + E_cc))
     print()
     print("   Iter       CC Energy        E_conv            RMS D")
     print(" ---------------------------------------------------------")
@@ -311,7 +311,7 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
 
             temp = L3_drCCD + Q_DCD_1C  
 
-        elif method == 'LCC':
+        elif method == 'LCCD':
             temp = 0 * DCD_1C 
 
 
@@ -447,7 +447,7 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
             t2 = t2_new
 
 
-    print("\nCCD Energy               :%16.12f" % (Escf+E_cc))
+    print("\nCCD Energy               :%16.12f" % (E_cc))
     if (method == 'pCCD' or method == 'pDCD') : 
             print(" You just did a paramterized CCD/DCD calculation with parameters" )
             print(" alpha       = %16.12f" % (alpha))
@@ -457,7 +457,7 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
     print(method)
     print(method2)
 
-    return E_cc,t2_new, conv
+    return E_cc,t2_new
 # }}}
 
 def nCr(n, r):
