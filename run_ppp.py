@@ -621,6 +621,7 @@ for i in range(0,natom) :
 		dist[i][j]   = math.sqrt(dist_x**2+dist_y**2+dist_z**2)
 
 
+
 n_cene =1
 n_site =6
 R = 1.4

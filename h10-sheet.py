@@ -3,7 +3,7 @@ from math import factorial
 from scipy.special import comb
 import itertools as it
 import copy as cp
-from cid import *
+from code import *
 from numpy import linalg as LA
 from pyscf import gto, scf, mcscf, fci, ao2mo, mp, cc, lo
 
@@ -206,8 +206,9 @@ cas_nel = 10
 
 
 for ind in range(0,41):
-    r0 = 0.8 + 0.05 * ind
-    molecule =  get_h10sheet_geom(r0)
+    r0 = 3.0 - 0.1  * ind
+    #molecule =  get_h10sheet_geom(r0)
+    molecule =  get_h10pyr_geom(r0)
     #PYSCF inputs
     mol = gto.Mole(atom=molecule,
 	symmetry = False,basis = basis_set ,spin=0)
@@ -243,13 +244,13 @@ for ind in range(0,41):
     g = ao2mo.kernel(mol,C,aosym='s4',compact=False).reshape(4*((cas_norb),))
 
     try:
-        E_cc, t2  = run_ccd_method(mo_energy,h,g,cas_nel//2,t2= t2 ,method="DCD"   ,method2="normal",diis=False,damp_ratio = .9)
+        E_cc2, t2  = run_ccd_method(mo_energy,h,g,cas_nel//2,t2= t2 ,method="DCD"   ,method2="normal",diis=False,damp_ratio = .9)
     except:
-        E_cc, t2  = run_ccd_method(mo_energy,h,g,cas_nel//2,t2= None ,method="DCD"   ,method2="normal",diis=False,damp_ratio = .9)
+        E_cc2, t2  = run_ccd_method(mo_energy,h,g,cas_nel//2,t2= None ,method="DCD"   ,method2="normal",diis=False,damp_ratio = .9)
 
-    print("DCD %16.8f"%(mf.e_tot+E_cc))
-    E_cc, t2  = run_ccd_method(mo_energy,h,g,cas_nel//2,t2= t2 ,method="CCD"   ,method2="pairsinglet",diis=False,damp_ratio = .9)
-    print("pairCCD %16.8f"%(mf.e_tot+E_cc))
+    print("DCD %16.8f"%(mf.e_tot+E_cc2))
+    E_cc, t2_  = run_ccd_method(mo_energy,h,g,cas_nel//2,t2= t2 ,method="CCD"   ,method2="normal",diis=False,damp_ratio = .9)
+    #print("pairCCD %16.8f"%(mf.e_tot+E_cc))
     print(t2.shape)
     print(E_cc)
     print(E_cc+mf.e_tot)
@@ -268,6 +269,13 @@ for ind in range(0,41):
         print('E = energy for r',r0)
         for i in range(ecas.shape[0]):
             print('State:%d E = %.12f  2S+1 = %.7f' %(i,ecas[i], cisolver.spin_square(vcas[i], h.shape[0], (5,5))[1]))
+
+
+    a, b, c = 1, 0, 0
+    E_pdcd1, t2_   = run_ccd_method(mo_energy,h,g,cas_nel//2,t2= t2   ,method="pDCD"       ,method2="normal",diis=True, alpha= a,  beta=b, gamma=c,damp_ratio = 0.90,diis_start=30,max_diis=8)
+    a, b, c = 0, 0, 0
+    E_pdcd2, t2_   = run_ccd_method(mo_energy,h,g,cas_nel//2,t2= t2   ,method="pDCD"       ,method2="normal",diis=False, alpha= a,  beta=b, gamma=c,damp_ratio = 0.99,diis_start=30,max_diis=8,max_iter=1000)
+    #E_pdcd2, t2_   = run_ccd_method(mo_energy,h,g,cas_nel//2,t2= t2   ,method="LCCD"       ,method2="normal",diis=False, alpha= a,  beta=b, gamma=c,damp_ratio = 0.99,diis_start=30,max_diis=8,max_iter=1000)
+    print("000:%16.8f"%(E_pdcd2+mf.e_tot))
+    print("r0:%6.2f  FCI:%12.8f  CCD:%12.8f   DCD:%12.8f   pDCDa:%12.8f"%(r0,ecas[0],E_cc+mf.e_tot,E_cc2+mf.e_tot,E_pdcd1+mf.e_tot))
     exit()
-
-

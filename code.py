@@ -2,7 +2,7 @@ import numpy as np
 from math import factorial
 import itertools as it
 import copy as cp
-from numpy import linalg as LA
+import scipy.linalg as la
 
 def get_hubbard_params_ncene(n_cene,beta,U):
 # {{{
@@ -333,6 +333,7 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
         #print((Rijab + temp3)-t2*Dijab)
 
         t2_new = (Rijab + temp3)/Dijab
+        #print(np.max(Dijab))
 
         #t2_new = (Rijab + DCD_1C)/Dijab
         #t2_new = (Rijab + DCD_1X)/Dijab
@@ -514,6 +515,7 @@ def run_mp2(orb,H,g,closed_shell_nel):
 
 
     Emp2 = 2 * np.einsum('ijab,ijab',t2,gov) - np.einsum('ijab,ijba',t2,gov) 
+    print("MP2:%16.8f"%(Escf+Emp2))
     return Emp2
 # }}}
 
@@ -544,4 +546,269 @@ def get_hubbard_params(n_site,beta,U,pbc=True):
             
     return h_local,g_local
     # }}}
+
+
+##############
+#
+# Testing kappa MP2 and xBW https://aip.scitation.org/doi/10.1063/5.0078119
+#
+##############
+
+def run_bw(orb,H,g,closed_shell_nel):
+# {{{
+    print()
+    print(" ---------------------------------------------------------")
+    print("                         BW         ")
+    print(" ---------------------------------------------------------")
+
+    print("WARNING -transforming to physicist notation")
+    g = g.swapaxes(1,2)
+    nel = closed_shell_nel
+    occ = nel
+    tot = H.shape[0]
+    vir = tot - occ
+
+
+    Hocc = H[:nel,:nel]                         
+    gocc = g[:nel,:nel,:nel,:nel]               
+    gvir = g[nel:tot,nel:tot,nel:tot,nel:tot]   
+    gov = g[:nel,:nel,nel:tot,nel:tot]         
+    Escf0  =  2*np.einsum('ii',Hocc)            
+    Escf1  =  2*np.einsum('pqpq',gocc)          
+    Escf2  =  np.einsum('ppqq',gocc)            
+                                                
+    Escf = Escf0 + Escf1 - Escf2                
+
+    #Guess T2 amplitudes, if none is provided
+    #t2 = np.zeros((occ,occ,vir,vir))
+    
+    Ec = 0
+    for it in range(0,30):
+        Dijab = np.zeros((occ,occ,vir,vir))
+        Rijab = np.zeros((occ,occ,vir,vir))
+        t2 = np.zeros((occ,occ,vir,vir))
+        for i in range(0,nel):
+           for j in range(0,nel):
+              for a in range(nel,tot):
+                 for b in range(nel,tot):
+                    Dijab[i,j,a-occ,b-occ] = (orb[i] + orb[j] - orb[a] - orb[b] + (Ec/(2*nel)) )
+                    t2[i,j,a-occ,b-occ] = gov[i,j,a-occ,b-occ]/Dijab[i,j,a-occ,b-occ]
+        Ec_old = Ec
+        Ec = 2 * np.einsum('ijab,ijab',t2,gov) - np.einsum('ijab,ijba',t2,gov) 
+        print("%4d %12.6f"%(it,Ec))
+        if abs(Ec - Ec_old) < 1e-5:
+            print("Converged")
+            print("Etot:%16.8f"%(Ec+Escf))
+            break 
+    return Ec
+# }}}
+
+def run_kmp2(orb,H,g,closed_shell_nel,kappa = 0.4):
+# {{{
+    print()
+    print(" ---------------------------------------------------------")
+    print("                         BW         ")
+    print(" ---------------------------------------------------------")
+
+    print("WARNING -transforming to physicist notation")
+    g = g.swapaxes(1,2)
+    nel = closed_shell_nel
+    occ = nel
+    tot = H.shape[0]
+    vir = tot - occ
+
+
+    Hocc = H[:nel,:nel]                         
+    gocc = g[:nel,:nel,:nel,:nel]               
+    gvir = g[nel:tot,nel:tot,nel:tot,nel:tot]   
+    gov = g[:nel,:nel,nel:tot,nel:tot]         
+    Escf0  =  2*np.einsum('ii',Hocc)            
+    Escf1  =  2*np.einsum('pqpq',gocc)          
+    Escf2  =  np.einsum('ppqq',gocc)            
+                                                
+    Escf = Escf0 + Escf1 - Escf2                
+
+    #Guess T2 amplitudes, if none is provided
+    t2 = np.zeros((occ,occ,vir,vir))
+    Dijab = np.zeros((occ,occ,vir,vir))
+    Kappa = np.zeros((occ,occ,vir,vir))
+    for i in range(0,nel):
+       for j in range(0,nel):
+          for a in range(nel,tot):
+             for b in range(nel,tot):
+                Dijab[i,j,a-occ,b-occ] = (orb[i] + orb[j] - orb[a] - orb[b])
+                Kijab = (1 - np.exp(kappa*Dijab[i,j,a-occ,b-occ]))**2
+                t2[i,j,a-occ,b-occ] = (gov[i,j,a-occ,b-occ]/Dijab[i,j,a-occ,b-occ]) * Kijab
+    
+    Ec = 2 * np.einsum('ijab,ijab',t2,gov) - np.einsum('ijab,ijba',t2,gov) 
+    print("Ekmp2:%16.8f  kappa:%12.4f"%(Ec+Escf,kappa))
+    return Ec
+# }}}
+
+##############
+#
+# For orbital opt of MP2
+#
+##############
+
+def spatial_2_spin(eps,hao,gao,C):
+# {{{
+    '''
+    Spin block 1e integrals
+    Spin blocks 2-electron integrals
+    Using np.kron, we project I and I tranpose into the space of the 2x2 ide
+    The result is our 2-electron integral tensor in spin orbital notation
+    '''
+
+    # ==> Orbital Energies <==
+    eps = np.append(eps, eps)
+
+    # ==> core Hamiltoniam <==
+
+    # Using np.kron, we project h into the space of the 2x2 identity
+    # The result is the core Hamiltonian in the spin orbital formulation
+    hao = np.kron(np.eye(2), hao)
+
+    # ==> 2e integral <==
+    identity = np.eye(2)
+    gao = np.kron(identity, gao)
+    gao_spinblock =  np.kron(identity, gao.T)
+
+    # Convert chemist's notation to physicist's notation, and antisymmetrize
+    # (pq | rs) ---> <pr | qs>
+    # <pr||qs> = <pr | qs> - <pr | sq>
+    gao = gao_spinblock.transpose(0, 2, 1, 3) - gao_spinblock.transpose(0, 2, 3, 1)
+
+
+
+    # ==> MO Coefficients <==
+    # Get coefficients, block, and sort
+    Ca = np.asarray(C)
+    Cb = np.asarray(C)
+    C = np.block([
+                 [      Ca,         np.zeros_like(Cb)],
+                 [np.zeros_like(Ca),          Cb     ]])
+
+    #print(C)
+    # Sort the columns of C according to the order of orbital energies
+    C = C[:, eps.argsort()]
+    #print(C)
+
+    return eps, hao, gao, C
+# }}}
+
+def ao_to_mo(hao, gao, C):
+# {{{
+    '''
+    Transform hao, which is the core Hamiltonian in the spin orbital basis,
+    into the MO basis using MO coefficients
+
+    Transform gao, which is the spin-blocked 4d array of physicist's notation,
+    antisymmetric two-electron integrals, into the MO basis using MO coefficients
+    '''
+    
+    # ==> AO to MO transformation functions <==
+    hmo =  np.einsum('pQ, pP -> PQ', 
+           np.einsum('pq, qQ -> pQ', hao, C, optimize=True), C, optimize=True)
+
+    gmo =  np.einsum('pQRS, pP -> PQRS',
+           np.einsum('pqRS, qQ -> pQRS',
+           np.einsum('pqrS, rR -> pqRS', 
+           np.einsum('pqrs, sS -> pqrS', gao, C, optimize=True), C, optimize=True), C, optimize=True), C, optimize=True)
+    return hmo, gmo
+# }}}
+
+def oomp2(eps,hmo,gmo,C,nocc,ecore,maxiter=40,E_conv=1e-8):
+    """
+    Optimize orbitals 
+    """
+# {{{
+    nso = hmo.shape[0]
+    nvirt = nso - nocc         # Number of virtual orbitals
+
+    # code block 11
+    # Make slices
+    o = slice(None, nocc)
+    v = slice(nocc, None)
+    x = np.newaxis
+
+    # Intialize t amplitude and energy 
+    t_amp = np.zeros((nvirt, nvirt, nocc, nocc)) 
+    E_OMP2_old = 0.0 
+
+    # Initialize the correlation one particle density matrix
+    opdm_corr = np.zeros((nso, nso))
+
+    # Build the reference one particle density matrix
+    opdm_ref = np.zeros((nso, nso))
+    opdm_ref[o, o] = np.identity(nocc)
+
+    # Initialize two particle density matrix
+    tpdm_corr = np.zeros((nso, nso, nso, nso))
+
+    # Initialize the rotation matrix parameter 
+    X = np.zeros((nso, nso))
+
+    for iteration in range(maxiter):
+
+        # Build the Fock matrix
+        f = hmo + np.einsum('piqi -> pq', gmo[:, o, :, o], optimize=True)
+
+        # Build off-diagonal Fock Matrix and orbital energies
+        fprime = f.copy()
+        np.fill_diagonal(fprime, 0)
+        eps = f.diagonal()
+
+        # Update t amplitudes
+        t1 = gmo[v, v, o, o]
+        t2 = np.einsum('ac,cbij -> abij', fprime[v, v], t_amp, optimize=True)
+        t3 = np.einsum('ki,abkj -> abij', fprime[o, o], t_amp, optimize=True)
+        t_amp = t1 + t2 - t2.transpose((1, 0, 2, 3)) \
+                - t3 + t3.transpose((0, 1, 3, 2))
+        
+        # Divide by a 4D tensor of orbital energies
+        t_amp /= (- eps[v, x, x, x] - eps[x, v, x, x] +
+                  eps[x, x, o, x] + eps[x, x, x, o])
+       
+        # Build one particle density matrix
+        opdm_corr[v, v] = (1/2)*np.einsum('ijac,bcij -> ba', t_amp.T, t_amp, optimize=True)
+        opdm_corr[o, o] = -(1/2)*np.einsum('jkab,abik -> ji', t_amp.T, t_amp, optimize=True)
+        opdm = opdm_corr + opdm_ref 
+
+        # Build two particle density matrix
+        tpdm_corr[v, v, o, o] = t_amp
+        tpdm_corr[o, o, v, v] = t_amp.T
+        tpdm2 = np.einsum('rp,sq -> rspq', opdm_corr, opdm_ref, optimize=True)
+        tpdm3 = np.einsum('rp,sq->rspq', opdm_ref, opdm_ref, optimize=True)
+        tpdm = tpdm_corr \
+            + tpdm2 - tpdm2.transpose((1, 0, 2, 3)) \
+            - tpdm2.transpose((0, 1, 3, 2)) + tpdm2.transpose((1, 0, 3, 2)) \
+            + tpdm3 - tpdm3.transpose((1, 0, 2, 3))
+
+        # Newton-Raphson step
+        F = np.einsum('pr,rq->pq', hmo, opdm) + (1/2) * np.einsum('prst,stqr -> pq', gmo, tpdm, optimize=True)
+        X[v, o] = ((F - F.T)[v, o])/(- eps[v, x] + eps[x, o])
+
+        # Build Newton-Raphson orbital rotation matrix
+        U = la.expm(X - X.T)
+
+        # Rotate spin-orbital coefficients
+        C = C.dot(U)
+
+        # Transform one and two electron integrals using new C
+        #hmo, gmo = ao_to_mo(hao, gao, C)
+        hmo, gmo = ao_to_mo(hmo, gmo, U)
+
+        # Compute the energy
+        E_OMP2 = ecore + np.einsum('pq,qp ->', hmo, opdm, optimize=True) + \
+                 (1/4)*np.einsum('pqrs,rspq ->', gmo, tpdm, optimize=True)
+        print('OMP2 iteration: %3d Energy: %15.8f dE: %2.5E' % (iteration, E_OMP2, (E_OMP2-E_OMP2_old)))
+
+        if (abs(E_OMP2-E_OMP2_old)) < E_conv:
+            break
+
+        # Updating values
+        E_OMP2_old = E_OMP2
+    return E_OMP2
+# }}}
 
