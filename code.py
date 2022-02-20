@@ -515,7 +515,7 @@ def run_mp2(orb,H,g,closed_shell_nel):
 
 
     Emp2 = 2 * np.einsum('ijab,ijab',t2,gov) - np.einsum('ijab,ijba',t2,gov) 
-    print("MP2:%16.8f"%(Escf+Emp2))
+    #print("MP2:%16.8f"%(Escf+Emp2))
     return Emp2
 # }}}
 
@@ -554,7 +554,16 @@ def get_hubbard_params(n_site,beta,U,pbc=True):
 #
 ##############
 
-def run_bw(orb,H,g,closed_shell_nel):
+def run_bw(orb,H,g,closed_shell_nel,level_shift='xbw'):
+    """
+    shift with BW method
+    level_shit options: 
+        bw:  will do a BW2 calculation (not size extensive)
+        xbw: will do johannes shift of Ec/2*closed_shell_nel
+        mp:  will do MP2 calculation
+        value:  user can give a constant value
+
+    """
 # {{{
     print()
     print(" ---------------------------------------------------------")
@@ -584,6 +593,16 @@ def run_bw(orb,H,g,closed_shell_nel):
     
     Ec = 0
     for it in range(0,30):
+
+        if level_shift == 'xbw':
+            shift = Ec/(2*nel)
+        if level_shift == 'mp':
+            shift = 0
+        if level_shift == 'bw':
+            shift = Ec
+        if level_shift == 'value':
+            shift =  0.4
+
         Dijab = np.zeros((occ,occ,vir,vir))
         Rijab = np.zeros((occ,occ,vir,vir))
         t2 = np.zeros((occ,occ,vir,vir))
@@ -591,23 +610,26 @@ def run_bw(orb,H,g,closed_shell_nel):
            for j in range(0,nel):
               for a in range(nel,tot):
                  for b in range(nel,tot):
-                    Dijab[i,j,a-occ,b-occ] = (orb[i] + orb[j] - orb[a] - orb[b] + (Ec/(2*nel)) )
+                    Dijab[i,j,a-occ,b-occ] = (orb[i] + orb[j] - orb[a] - orb[b] + shift )
                     t2[i,j,a-occ,b-occ] = gov[i,j,a-occ,b-occ]/Dijab[i,j,a-occ,b-occ]
         Ec_old = Ec
         Ec = 2 * np.einsum('ijab,ijab',t2,gov) - np.einsum('ijab,ijba',t2,gov) 
         print("%4d %12.6f"%(it,Ec))
         if abs(Ec - Ec_old) < 1e-5:
             print("Converged")
-            print("Etot:%16.8f"%(Ec+Escf))
+            print("Etot:%16.8f method:%4s"%(Ec+Escf,level_shift))
             break 
     return Ec
 # }}}
 
 def run_kmp2(orb,H,g,closed_shell_nel,kappa = 0.4):
+    """
+    kappa MP2  method. Cant do oo yet since there will be more values in gradient. 
+    """
 # {{{
     print()
     print(" ---------------------------------------------------------")
-    print("                         BW         ")
+    print("                         kMP2         ")
     print(" ---------------------------------------------------------")
 
     print("WARNING -transforming to physicist notation")
