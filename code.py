@@ -95,7 +95,13 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
         method = "CCD",method2="normal", 
         max_iter = 1000, e_conv = 1e-10, d_conv = 1e-8, 
         diis = True, diis_start=10, max_diis = 5,
-        damp = True, damp_ratio=0.8, alpha=1.0,beta=1.0,gamma=1.0, kappa_reg = False, kappa = 1000.0):
+        damp = True, damp_ratio=0.8, alpha=1.0,beta=1.0,gamma=1.0, reg = False, kappa = 1000.0):
+
+    """
+    Regularization possible with:
+        kappa
+        tikhonov
+    """
 # {{{
     print()
     print(" ---------------------------------------------------------")
@@ -334,14 +340,17 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
 
         
         # Check if we are using regularizers        
-        if (kappa_reg == False):
+        if (reg == False):
             t2_new = (Rijab + temp3)/Dijab
-        else :
+        elif reg == 'kappa':
             # if using kappa regularization
             #Kijab = (1 - np.exp(kappa*Dijab[i,j,a-occ,b-occ]))**2
             Kijab = np.ones((occ,occ,vir,vir))
             Kijab = (Kijab - np.exp(kappa*Dijab))**2
             t2_new = ((Rijab + temp3)/Dijab) * Kijab
+        elif reg == 'tikhonov':
+            t2_new = (Rijab + temp3)*(Dijab/np.square(Dijab)+kappa)
+
 
         #print(np.max(Dijab))
 
