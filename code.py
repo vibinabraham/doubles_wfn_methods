@@ -349,7 +349,19 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
             Kijab = (Kijab - np.exp(kappa*Dijab))**2
             t2_new = ((Rijab + temp3)/Dijab) * Kijab
         elif reg == 'tikhonov':
-            t2_new = (Rijab + temp3)*(Dijab/np.square(Dijab)+kappa)
+            t2_new = (Rijab + temp3)*(Dijab/(np.square(Dijab)+kappa))
+        elif reg == 'mine':
+            t2_new = (Rijab + temp3)/Dijab
+            #if abs(t2_new[0,0,0,0]) > 1:
+            #    t2_new[0,0,0,0] = np.sign(t2_new[0,0,0,0])*1
+            t2_new[0,0,0,0] = kappa 
+        elif reg == 'mine2':
+            t2_new = (Rijab + temp3)/Dijab
+            #if abs(t2_new[0,0,0,0]) > 1:
+            #    t2_new[0,0,0,0] = np.sign(t2_new[0,0,0,0])*1
+            freeze_t = t2_new[0,0,0,0] 
+            t2_new = kappa 
+            t2_new[0,0,0,0] = freeze_t
 
 
         #print(np.max(Dijab))
@@ -455,7 +467,8 @@ def run_ccd_method(orb, h, g, closed_shell_nel, t2 = None,
         E_diff = abs(E_cc - E_cc_new)
 
         drms = np.sqrt(np.sum(np.square(t2_new - t2)))/(nCr(occ,2)*nCr(vir,2))
-        print("%6d %16.8f %16.8f %16.6f" %(cc_iter,E_cc,E_diff,drms))
+        if cc_iter%50 == 0:
+            print("%6d %16.8f %16.8f %16.6f" %(cc_iter,E_cc,E_diff,drms))
         if (abs(E_diff) < e_conv) and drms < d_conv:
             conv = True
             break
@@ -853,3 +866,61 @@ def oomp2(eps,hmo,gmo,C,nocc,ecore,maxiter=40,E_conv=1e-8):
     return E_OMP2
 # }}}
 
+
+def run_scs_mp2(orb,H,g,closed_shell_nel,ss=6/5,os=1/3):
+# {{{
+    print()
+    print(" ---------------------------------------------------------")
+    print("                    Spin component scaled  MP2         ")
+    print(" ---------------------------------------------------------")
+
+    print("WARNING -transforming to physicist notation")
+    g = g.swapaxes(1,2)
+    nel = closed_shell_nel
+    occ = nel
+    tot = H.shape[0]
+    vir = tot - occ
+
+
+
+    Hocc = H[:nel,:nel]                         
+    gocc = g[:nel,:nel,:nel,:nel]               
+    gvir = g[nel:tot,nel:tot,nel:tot,nel:tot]   
+    gov = g[:nel,:nel,nel:tot,nel:tot]         
+    Escf0  =  2*np.einsum('ii',Hocc)            
+    Escf1  =  2*np.einsum('pqpq',gocc)          
+    Escf2  =  np.einsum('ppqq',gocc)            
+                                                
+    Escf = Escf0 + Escf1 - Escf2                
+
+    #Guess T2 amplitudes, if none is provided
+    #t2 = np.zeros((occ,occ,vir,vir))
+    
+    Dijab = np.zeros((occ,occ,vir,vir))
+    Rijab = np.zeros((occ,occ,vir,vir))
+    t2 = np.zeros((occ,occ,vir,vir))
+    for i in range(0,nel):
+       for j in range(0,nel):
+          for a in range(nel,tot):
+             for b in range(nel,tot):
+                Dijab[i,j,a-occ,b-occ] = (orb[i] + orb[j] - orb[a] - orb[b])
+                t2[i,j,a-occ,b-occ] = gov[i,j,a-occ,b-occ]/Dijab[i,j,a-occ,b-occ]
+
+    # Note singlet MP2 and triplet MP2 are different from what is done in SS and OS 
+    #t2s = (t2 + np.einsum('ijab->ijba',t2,optimize=True))/2 ##SINGLET MP2
+    #t2t = (t2 - np.einsum('ijab->ijba',t2,optimize=True))/2 ##TRIPLET MP2
+    #Emp2s = 2 * np.einsum('ijab,ijab',t2s,gov) - np.einsum('ijab,ijba',t2s,gov) 
+    #Emp2t = 2 * np.einsum('ijab,ijab',t2t,gov) - np.einsum('ijab,ijba',t2t,gov) 
+
+
+    Emp2s = np.einsum('ijab,ijab',t2,gov)
+    Emp2t = np.einsum('ijab,ijab',t2,gov) - np.einsum('ijab,ijba',t2,gov) 
+    print("        Same spin:%16.8f"%(Emp2s))
+    print("        Opp  spin:%16.8f"%(Emp2t))
+    print("              MP2:%16.8f"%(Emp2s+Emp2t))
+    print("Scale   Same spin:%16.8f"%(ss*Emp2s))
+    print("Scaled  Opp  spin:%16.8f"%(os*Emp2t))
+    Emp2 =  ss * Emp2s + os * Emp2t
+    print("          SCS-MP2:%16.8f"%(Emp2))
+    return Emp2
+# }}}
