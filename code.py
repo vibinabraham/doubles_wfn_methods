@@ -867,7 +867,7 @@ def oomp2(eps,hmo,gmo,C,nocc,ecore,maxiter=40,E_conv=1e-8):
 # }}}
 
 
-def run_scs_mp2(orb,H,g,closed_shell_nel,ss=6/5,os=1/3):
+def run_scs_mp2(orb,H,g,closed_shell_nel,ss=1/3,os=6/5):
 # {{{
     print()
     print(" ---------------------------------------------------------")
@@ -913,14 +913,14 @@ def run_scs_mp2(orb,H,g,closed_shell_nel,ss=6/5,os=1/3):
     #Emp2t = 2 * np.einsum('ijab,ijab',t2t,gov) - np.einsum('ijab,ijba',t2t,gov) 
 
 
-    Emp2s = np.einsum('ijab,ijab',t2,gov)
-    Emp2t = np.einsum('ijab,ijab',t2,gov) - np.einsum('ijab,ijba',t2,gov) 
-    print("        Same spin:%16.8f"%(Emp2s))
-    print("        Opp  spin:%16.8f"%(Emp2t))
-    print("              MP2:%16.8f"%(Emp2s+Emp2t))
-    print("Scale   Same spin:%16.8f"%(ss*Emp2s))
-    print("Scaled  Opp  spin:%16.8f"%(os*Emp2t))
-    Emp2 =  ss * Emp2s + os * Emp2t
+    Emp2os = np.einsum('ijab,ijab',t2,gov)
+    Emp2ss = np.einsum('ijab,ijab',t2,gov) - np.einsum('ijab,ijba',t2,gov) 
+    print("        Same spin:%16.8f"%(Emp2ss))
+    print("        Opp  spin:%16.8f"%(Emp2os))
+    print("              MP2:%16.8f"%(Emp2ss+Emp2os))
+    print("Scale   Same spin:%16.8f"%(ss*Emp2ss))
+    print("Scaled  Opp  spin:%16.8f"%(os*Emp2os))
+    Emp2 =  ss * Emp2ss + os * Emp2os
     print("          SCS-MP2:%16.8f"%(Emp2))
     return Emp2
 # }}}

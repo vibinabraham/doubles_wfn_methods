@@ -117,6 +117,6 @@ for ri in range(0,40):
     Ec = run_mp2(mo_energy,h,g,cas_nel//2)
     print("      MP2:%16.8f"%(Ec+mf.e_tot))
     Ec2 = run_scs_mp2(mo_energy,h,g,cas_nel//2)
-    Ec3 = run_scs_mp2(mo_energy,h,g,cas_nel//2,ss=a,os=b)
+    Ec3 = run_scs_mp2(mo_energy,h,g,cas_nel//2,ss=b,os=a)
 
     print("r0:%6.2f   CCSD:%12.8f   DCD:%12.8f   MP2:%12.8f  SCS-MP2:%12.8f RM-MP2:%12.8f"%(r0,eccsd.e_tot,E_cc2+mf.e_tot,Ec+mf.e_tot,Ec2+mf.e_tot,Ec3+mf.e_tot))
