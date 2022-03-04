@@ -924,3 +924,63 @@ def run_scs_mp2(orb,H,g,closed_shell_nel,ss=6/5,os=1/3):
     print("          SCS-MP2:%16.8f"%(Emp2))
     return Emp2
 # }}}
+
+def run_singlet_triplet_mp2(orb,H,g,closed_shell_nel,cs=1,ct=1):
+# {{{
+    print()
+    print(" ---------------------------------------------------------")
+    print("                    Spin component scaled  MP2         ")
+    print(" ---------------------------------------------------------")
+
+    print("WARNING -transforming to physicist notation")
+    g = g.swapaxes(1,2)
+    nel = closed_shell_nel
+    occ = nel
+    tot = H.shape[0]
+    vir = tot - occ
+
+
+
+    Hocc = H[:nel,:nel]                         
+    gocc = g[:nel,:nel,:nel,:nel]               
+    gvir = g[nel:tot,nel:tot,nel:tot,nel:tot]   
+    gov = g[:nel,:nel,nel:tot,nel:tot]         
+    Escf0  =  2*np.einsum('ii',Hocc)            
+    Escf1  =  2*np.einsum('pqpq',gocc)          
+    Escf2  =  np.einsum('ppqq',gocc)            
+                                                
+    Escf = Escf0 + Escf1 - Escf2                
+
+    #Guess T2 amplitudes, if none is provided
+    #t2 = np.zeros((occ,occ,vir,vir))
+    
+    Dijab = np.zeros((occ,occ,vir,vir))
+    Rijab = np.zeros((occ,occ,vir,vir))
+    t2 = np.zeros((occ,occ,vir,vir))
+    for i in range(0,nel):
+       for j in range(0,nel):
+          for a in range(nel,tot):
+             for b in range(nel,tot):
+                Dijab[i,j,a-occ,b-occ] = (orb[i] + orb[j] - orb[a] - orb[b])
+                t2[i,j,a-occ,b-occ] = gov[i,j,a-occ,b-occ]/Dijab[i,j,a-occ,b-occ]
+
+    # Note singlet MP2 and triplet MP2 are different from what is done in SS and OS 
+    # t2_singlet is symmetric combination
+    t2s = (t2 + np.einsum('ijab->ijba',t2,optimize=True))/2 ##SINGLET MP2
+    # t2_triplet is the skew-symmetric combination
+    t2t = (t2 - np.einsum('ijab->ijba',t2,optimize=True))/2 ##TRIPLET MP2
+    # singlet mp2 
+    Emp2s = 2 * np.einsum('ijab,ijab',t2s,gov) - np.einsum('ijab,ijba',t2s,gov) 
+    # triplet mp2 
+    Emp2t = 2 * np.einsum('ijab,ijab',t2t,gov) - np.einsum('ijab,ijba',t2t,gov) 
+
+
+    print("        Singlet MP2:%16.8f"%(Emp2s))
+    print("        Triplet MP2:%16.8f"%(Emp2t))
+    print("              MP2:%16.8f"%(Emp2s+Emp2t))
+    print("Scaled  Singlet MP2:%16.8f"%(cs*Emp2s))
+    print("Scaled  Triplet MP2:%16.8f"%(ct*Emp2t))
+    Emp2 =  cs * Emp2s + ct * Emp2t
+    print("          SST-MP2:%16.8f"%(Emp2))
+    return Emp2
+# }}}
